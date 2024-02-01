@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use factorio_recipe_planner::generic_transform;
 use full_moon::ast;
 
 fn main() -> Result<()> {
@@ -39,34 +40,22 @@ fn main() -> Result<()> {
         "expect a single assignment expression"
     );
 
-    let ast::Expression::TableConstructor(table) = assignment
+    let expression = assignment
         .expressions()
         .first()
         .ok_or(anyhow!("no expression in assignment"))?
-        .value()
+        .value();
+
+    let generic_transform::Value::Table(table) =
+        generic_transform::parse_value(expression).context("parsing top-level value")?
     else {
         bail!("assignment expression was not table");
     };
 
-    for field in table.fields().iter() {
-        match field {
-            ast::Field::ExpressionKey {
-                key: ast::Expression::String(key),
-                ..
-            }
-            | ast::Field::NameKey { key, .. } => {
-                let token = key.token();
-                let value = match token.token_type() {
-                    full_moon::tokenizer::TokenType::Identifier { identifier } => identifier,
-                    full_moon::tokenizer::TokenType::StringLiteral { literal, .. } => literal,
-                    _ => bail!("unexpected token type in key"),
-                };
-                println!("{value}");
-            }
-            ast::Field::ExpressionKey { key, .. } => println!("expression key: [{key}]"),
-            ast::Field::NoKey(_) => bail!("no key for field in table"),
-            _ => bail!("unknown field type"),
-        }
+    let mut keys = table.keys().collect::<Vec<_>>();
+    keys.sort_unstable();
+    for key in keys {
+        println!("{key}");
     }
 
     Ok(())
