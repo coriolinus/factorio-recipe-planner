@@ -50,10 +50,22 @@ fn main() -> Result<()> {
 
     for field in table.fields().iter() {
         match field {
+            ast::Field::ExpressionKey {
+                key: ast::Expression::String(key),
+                ..
+            }
+            | ast::Field::NameKey { key, .. } => {
+                let token = key.token();
+                let value = match token.token_type() {
+                    full_moon::tokenizer::TokenType::Identifier { identifier } => identifier,
+                    full_moon::tokenizer::TokenType::StringLiteral { literal, .. } => literal,
+                    _ => bail!("unexpected token type in key"),
+                };
+                println!("{value}");
+            }
             ast::Field::ExpressionKey { key, .. } => println!("expression key: [{key}]"),
-            ast::Field::NameKey { key, .. } => println!("key: {key}"),
-            ast::Field::NoKey(_) => println!("nokey"),
-            _ => println!("unknown"),
+            ast::Field::NoKey(_) => bail!("no key for field in table"),
+            _ => bail!("unknown field type"),
         }
     }
 
