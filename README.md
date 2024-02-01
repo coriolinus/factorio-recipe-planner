@@ -2,6 +2,8 @@
 
 This project is comprised of two parts. One is a more general parser for the recipe data. The other uses that data to interactively design factory modules.
 
+Note that everything is WIP for now; neither of the features have yet been fully implemented.
+
 ## Data Parser
 
 Factorio recipe data is not included in this repository, but can be found in various places online. Either use a precompiled data set, or extract your own given your currnet mod list.
