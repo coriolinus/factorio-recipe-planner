@@ -13,6 +13,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 /// The 16 byte size is chosen so that the actual sise of a `SString` is the same as the actual size of a basic heap-allocated `String`.
 type SString = SmallString<[u8; 16]>;
+pub type Table = HashMap<SString, Value>;
+pub type List = Vec<Value>;
 
 #[derive(Debug, Clone, PartialEq, derive_more::From, derive_more::TryInto)]
 pub enum Value {
@@ -21,7 +23,7 @@ pub enum Value {
     String(SString),
     Number(f64),
     Bool(bool),
-    Null,
+    Nil,
 }
 
 impl fmt::Display for Value {
@@ -46,7 +48,27 @@ impl fmt::Display for Value {
             Value::String(s) => write!(f, "\"{s}\""),
             Value::Number(n) => write!(f, "{n}"),
             Value::Bool(b) => write!(f, "{b}"),
-            Value::Null => f.write_str("nil"),
+            Value::Nil => f.write_str("nil"),
+        }
+    }
+}
+
+impl From<Value> for serde_json::Value {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Table(table) => serde_json::Value::Object(
+                table
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.into()))
+                    .collect(),
+            ),
+            Value::List(list) => {
+                serde_json::Value::Array(list.into_iter().map(Into::into).collect())
+            }
+            Value::String(s) => s.to_string().into(),
+            Value::Number(n) => serde_json::Number::from_f64(n).into(),
+            Value::Bool(b) => b.into(),
+            Value::Nil => serde_json::Value::Null,
         }
     }
 }
@@ -65,7 +87,7 @@ fn parse_token_ref(token_ref: &full_moon::tokenizer::TokenReference) -> Result<V
         full_moon::tokenizer::TokenType::Symbol { symbol } => match symbol {
             full_moon::tokenizer::Symbol::True => Ok(Value::Bool(true)),
             full_moon::tokenizer::Symbol::False => Ok(Value::Bool(false)),
-            full_moon::tokenizer::Symbol::Nil => Ok(Value::Null),
+            full_moon::tokenizer::Symbol::Nil => Ok(Value::Nil),
             _ => Err(Error::InvalidSymbol(symbol.to_string())),
         },
         full_moon::tokenizer::TokenType::Eof => Err(Error::TokenInvalidType("Eof")),
@@ -83,7 +105,7 @@ fn parse_token_ref(token_ref: &full_moon::tokenizer::TokenReference) -> Result<V
     }
 }
 
-pub fn parse_value(value: &ast::Expression) -> Result<Value> {
+pub(crate) fn parse_value(value: &ast::Expression) -> Result<Value> {
     match value {
         ast::Expression::Number(token_ref)
         | ast::Expression::String(token_ref)
@@ -168,8 +190,7 @@ pub fn parse_value(value: &ast::Expression) -> Result<Value> {
     }
 }
 
-pub type Table = HashMap<SString, Value>;
-pub fn parse_table(table: &ast::TableConstructor) -> Result<Table> {
+fn parse_table(table: &ast::TableConstructor) -> Result<Table> {
     fn key_of(idx: usize, field: &ast::Field) -> Result<SString> {
         match field {
             ast::Field::NameKey { key: token_ref, .. }
@@ -232,7 +253,6 @@ pub fn parse_table(table: &ast::TableConstructor) -> Result<Table> {
     Ok(out)
 }
 
-pub type List = Vec<Value>;
 fn parse_list(list: &ast::TableConstructor) -> Result<List> {
     let mut out = List::with_capacity(list.fields().len());
 

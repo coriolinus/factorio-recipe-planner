@@ -1,3 +1,4 @@
 /target
-/prototype-data.lua
-/err.json
+/*.lua
+/*.json
+/prototype-data*
