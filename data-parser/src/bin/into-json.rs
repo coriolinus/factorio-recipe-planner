@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use factorio_recipe_planner::parse_generic;
+use data_parser::parse_lua;
 
 /// Convert a set of Lua definitions into an equivalent JSON format.
 #[derive(Debug, Parser)]
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         data = std::fs::read_to_string(args.input).context("reading data from file")?;
     }
 
-    let value = parse_generic(&data).context("parsing top-level value")?;
+    let value = parse_lua(&data).context("parsing top-level value")?;
 
     if args.split_toplevel && args.output != "-" {
         let dir = PathBuf::from(args.output);

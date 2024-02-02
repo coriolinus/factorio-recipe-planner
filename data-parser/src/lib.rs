@@ -1,7 +1,8 @@
 pub mod generic_transform;
+pub mod models;
 
 /// Parse the definitions into a `serde_json::Value`.
-pub fn parse_generic(mut prototype_data: &str) -> Result<serde_json::Value, Error> {
+pub fn parse_lua(mut prototype_data: &str) -> Result<serde_json::Value, Error> {
     const EXPECTED_HEADER: &str = "Script @__DataRawSerpent__/data-final-fixes.lua:1: ";
 
     // strip the header if it appears; don't change the input otherwise
