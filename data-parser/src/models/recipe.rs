@@ -1,7 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSecondsWithFrac, Seq};
+use serde_with::{serde_as, DurationSecondsWithFrac};
 use time::Duration;
 
 const HALF_SECOND: Duration = Duration::milliseconds(500);
@@ -167,7 +167,6 @@ mod tests {
     }
     mod copper_cable {
         use super::super::*;
-        use maplit::hashmap;
 
         // Note that this is not quite the recipe from the real recipe book;
         // this expresses certain quantities as floats, where the recipe book
@@ -209,7 +208,6 @@ mod tests {
 
     mod uranium_processing {
         use super::super::*;
-        use maplit::hashmap;
 
         // Note that this is not quite the recipe from the real recipe book;
         // this expresses certain quantities as floats, where the recipe book
@@ -266,7 +264,6 @@ mod tests {
 
     mod advanced_oil_processing {
         use super::super::*;
-        use maplit::hashmap;
 
         // Note that this is not quite the recipe from the real recipe book;
         // this expresses certain quantities as floats, where the recipe book
