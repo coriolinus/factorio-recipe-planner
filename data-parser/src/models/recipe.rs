@@ -72,6 +72,8 @@ pub struct OutputItem {
     pub amount: u8,
     #[serde(default = "one_f64", skip_serializing_if = "is_one_f64")]
     pub probability: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -87,7 +89,50 @@ pub enum Output {
     Many(ManyOutputs),
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExplicitIngredient {
+    amount: f64,
+    name: String,
+    r#type: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Ingredient {
+    Solid(String, f64),
+    Explicit(ExplicitIngredient),
+}
+
 #[serde_as]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecipeData {
+    #[serde(default = "true_", skip_serializing_if = "is_true")]
+    pub enabled: bool,
+    #[serde_as(as = "DurationSecondsWithFrac<f64>")]
+    #[serde(
+        rename = "energy_required",
+        default = "half_second",
+        skip_serializing_if = "is_half_second"
+    )]
+    pub duration: Duration,
+    pub ingredients: Vec<Ingredient>,
+    #[serde(flatten)]
+    pub output: Output,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecipeDataWithHardMode {
+    normal: RecipeData,
+    expensive: RecipeData,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RecipeDataEnum {
+    Simple(RecipeData),
+    WithHardMode(RecipeDataWithHardMode),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Recipe {
     pub name: String,
@@ -98,21 +143,10 @@ pub struct Recipe {
     pub subgroup: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order: Option<String>,
-    #[serde(default = "true_", skip_serializing_if = "is_true")]
-    pub enabled: bool,
     #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<IconData>,
-    #[serde_as(as = "Seq<(_, _)>")]
-    pub ingredients: HashMap<String, u8>,
     #[serde(flatten)]
-    pub output: Output,
-    #[serde_as(as = "DurationSecondsWithFrac<f64>")]
-    #[serde(
-        rename = "energy_required",
-        default = "half_second",
-        skip_serializing_if = "is_half_second"
-    )]
-    pub duration: Duration,
+    pub recipe_data: RecipeDataEnum,
 }
 
 #[cfg(test)]
@@ -135,7 +169,12 @@ mod tests {
         use super::super::*;
         use maplit::hashmap;
 
-        const RECIPE: &str = r#"{"ingredients":[["copper-plate",1]],"name":"copper-cable","result":"copper-cable","result_count":2,"type":"recipe"}"#;
+        // Note that this is not quite the recipe from the real recipe book;
+        // this expresses certain quantities as floats, where the recipe book
+        // has them as integers.
+        //
+        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
+        const RECIPE: &str = r#"{"ingredients":[["copper-plate",1.0]],"name":"copper-cable","result":"copper-cable","result_count":2,"type":"recipe"}"#;
 
         #[test]
         fn parses() {
@@ -145,15 +184,17 @@ mod tests {
                 category: None,
                 subgroup: None,
                 order: None,
-                enabled: true,
-                icon: None,
-                ingredients: hashmap! {"copper-plate".into() => 1},
-                output: Output::Single(SingleOutput {
-                    name: "copper-cable".into(),
-                    amount: 2,
-                    probability: 1.0,
+                recipe_data: RecipeDataEnum::Simple(RecipeData {
+                    enabled: true,
+                    ingredients: vec![Ingredient::Solid("copper-plate".into(), 1.0)],
+                    output: Output::Single(SingleOutput {
+                        name: "copper-cable".into(),
+                        amount: 2,
+                        probability: 1.0,
+                    }),
+                    duration: Duration::milliseconds(500),
                 }),
-                duration: Duration::milliseconds(500),
+                icon: None,
             };
 
             let found = serde_json::from_str::<Recipe>(RECIPE).unwrap();
@@ -171,11 +212,11 @@ mod tests {
         use maplit::hashmap;
 
         // Note that this is not quite the recipe from the real recipe book;
-        // this expresses the energy required as a float, where the recipe book
-        // has it as an integer.
+        // this expresses certain quantities as floats, where the recipe book
+        // has them as integers.
         //
         // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
-        const RECIPE: &str = r#"{"category":"centrifuging","enabled":false,"energy_required":12.0,"icon":"__base__/graphics/icons/uranium-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[["uranium-ore",10]],"name":"uranium-processing","order":"k[uranium-processing]","results":[{"amount":1,"name":"uranium-235","probability":0.007000000000000001},{"amount":1,"name":"uranium-238","probability":0.993}],"subgroup":"raw-material","type":"recipe"}"#;
+        const RECIPE: &str = r#"{"category":"centrifuging","enabled":false,"energy_required":12.0,"icon":"__base__/graphics/icons/uranium-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[["uranium-ore",10.0]],"name":"uranium-processing","order":"k[uranium-processing]","results":[{"amount":1,"name":"uranium-235","probability":0.007000000000000001},{"amount":1,"name":"uranium-238","probability":0.993}],"subgroup":"raw-material","type":"recipe"}"#;
 
         #[test]
         fn parses() {
@@ -185,28 +226,106 @@ mod tests {
                 category: Some("centrifuging".into()),
                 subgroup: Some("raw-material".into()),
                 order: Some("k[uranium-processing]".into()),
-                enabled: false,
                 icon: Some(IconData {
                     path: "__base__/graphics/icons/uranium-processing.png".into(),
                     mipmaps: 4,
                     size: 64,
                 }),
-                ingredients: hashmap! {"uranium-ore".into() => 10},
-                output: Output::Many(ManyOutputs {
-                    outputs: vec![
-                        OutputItem {
-                            name: "uranium-235".into(),
-                            amount: 1,
-                            probability: 0.007000000000000001,
-                        },
-                        OutputItem {
-                            name: "uranium-238".into(),
-                            amount: 1,
-                            probability: 0.993,
-                        },
-                    ],
+                recipe_data: RecipeDataEnum::Simple(RecipeData {
+                    enabled: false,
+                    duration: Duration::seconds(12),
+                    ingredients: vec![Ingredient::Solid("uranium-ore".into(), 10.0)],
+                    output: Output::Many(ManyOutputs {
+                        outputs: vec![
+                            OutputItem {
+                                name: "uranium-235".into(),
+                                amount: 1,
+                                probability: 0.007000000000000001,
+                                r#type: None,
+                            },
+                            OutputItem {
+                                name: "uranium-238".into(),
+                                amount: 1,
+                                probability: 0.993,
+                                r#type: None,
+                            },
+                        ],
+                    }),
                 }),
-                duration: Duration::seconds(12),
+            };
+
+            let found = serde_json::from_str::<Recipe>(RECIPE).unwrap();
+            assert_eq!(found, expect);
+        }
+
+        #[test]
+        fn roundtrip() {
+            super::roundtrip(RECIPE);
+        }
+    }
+
+    mod advanced_oil_processing {
+        use super::super::*;
+        use maplit::hashmap;
+
+        // Note that this is not quite the recipe from the real recipe book;
+        // this expresses certain quantities as floats, where the recipe book
+        // has them as integers.
+        //
+        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
+        const RECIPE: &str = r#"{"category":"oil-processing","enabled":false,"energy_required":5.0,"icon":"__base__/graphics/icons/fluid/advanced-oil-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[{"amount":50.0,"name":"water","type":"fluid"},{"amount":100.0,"name":"crude-oil","type":"fluid"}],"name":"advanced-oil-processing","order":"a[oil-processing]-b[advanced-oil-processing]","results":[{"amount":25,"name":"heavy-oil","type":"fluid"},{"amount":45,"name":"light-oil","type":"fluid"},{"amount":55,"name":"petroleum-gas","type":"fluid"}],"subgroup":"fluid-recipes","type":"recipe"}"#;
+
+        #[test]
+        fn parses() {
+            let expect = Recipe {
+                name: "advanced-oil-processing".into(),
+                r#type: "recipe".into(),
+                category: Some("oil-processing".into()),
+                subgroup: Some("fluid-recipes".into()),
+                order: Some("a[oil-processing]-b[advanced-oil-processing]".into()),
+                icon: Some(IconData {
+                    path: "__base__/graphics/icons/fluid/advanced-oil-processing.png".into(),
+                    mipmaps: 4,
+                    size: 64,
+                }),
+                recipe_data: RecipeDataEnum::Simple(RecipeData {
+                    enabled: false,
+                    duration: Duration::seconds(5),
+                    ingredients: vec![
+                        Ingredient::Explicit(ExplicitIngredient {
+                            amount: 50.0,
+                            name: "water".into(),
+                            r#type: "fluid".into(),
+                        }),
+                        Ingredient::Explicit(ExplicitIngredient {
+                            amount: 100.0,
+                            name: "crude-oil".into(),
+                            r#type: "fluid".into(),
+                        }),
+                    ],
+                    output: Output::Many(ManyOutputs {
+                        outputs: vec![
+                            OutputItem {
+                                name: "heavy-oil".into(),
+                                amount: 25,
+                                probability: 1.0,
+                                r#type: Some("fluid".into()),
+                            },
+                            OutputItem {
+                                name: "light-oil".into(),
+                                amount: 45,
+                                probability: 1.0,
+                                r#type: Some("fluid".into()),
+                            },
+                            OutputItem {
+                                name: "petroleum-gas".into(),
+                                amount: 55,
+                                probability: 1.0,
+                                r#type: Some("fluid".into()),
+                            },
+                        ],
+                    }),
+                }),
             };
 
             let found = serde_json::from_str::<Recipe>(RECIPE).unwrap();
