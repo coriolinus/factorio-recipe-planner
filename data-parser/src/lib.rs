@@ -19,7 +19,7 @@ pub fn parse_lua(mut prototype_data: &str) -> Result<serde_json::Value, Error> {
         d
     };
 
-    let parsed_ast = full_moon::parse(&data)?;
+    let parsed_ast = full_moon::parse(&data).map_err(Box::new)?;
     debug_assert_eq!(
         parsed_ast.nodes().stmts().count(),
         1,
@@ -56,7 +56,7 @@ pub fn parse_lua(mut prototype_data: &str) -> Result<serde_json::Value, Error> {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("parsing lua input")]
-    Lua(#[from] full_moon::Error),
+    Lua(#[from] Box<full_moon::Error>),
     #[error("performing generic tranform on input data")]
     GenericTransform(#[from] generic_transform::Error),
 }
