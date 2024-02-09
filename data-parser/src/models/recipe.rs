@@ -166,6 +166,46 @@ mod tests {
 
         assert_eq!(value_of_reserialized, value);
     }
+    mod iron_stick {
+        use super::super::*;
+
+        // Note that this is not quite the recipe from the real recipe book;
+        // this expresses certain quantities as floats, where the recipe book
+        // has them as integers.
+        //
+        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
+        const RECIPE: &str = r#"{"ingredients":[["iron-plate",1]],"name":"iron-stick","result":"iron-stick","result_count":2,"type":"recipe"}"#;
+
+        #[test]
+        fn parses() {
+            let expect = Recipe {
+                r#type: MustBe!("recipe"),
+                name: "iron-stick".into(),
+                category: None,
+                subgroup: None,
+                order: None,
+                recipe_data: RecipeDataEnum::Simple(RecipeData {
+                    enabled: true,
+                    ingredients: vec![Ingredient::Solid("iron-plate".into(), 1)],
+                    output: Output::Single(SingleOutput {
+                        name: "iron-stick".into(),
+                        amount: 2,
+                        probability: 1.0,
+                    }),
+                    duration: Duration::milliseconds(500),
+                }),
+                icon: None,
+            };
+
+            let found = serde_json::from_str::<Recipe>(RECIPE).unwrap();
+            assert_eq!(found, expect);
+        }
+
+        #[test]
+        fn roundtrip() {
+            super::roundtrip(RECIPE);
+        }
+    }
     mod copper_cable {
         use super::super::*;
 
