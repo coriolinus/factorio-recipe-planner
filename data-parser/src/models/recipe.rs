@@ -92,7 +92,7 @@ pub enum Output {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExplicitIngredient {
-    amount: f64,
+    amount: u32,
     name: String,
     r#type: String,
 }
@@ -100,7 +100,7 @@ pub struct ExplicitIngredient {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Ingredient {
-    Solid(String, f64),
+    Solid(String, u32),
     Explicit(ExplicitIngredient),
 }
 
@@ -174,7 +174,7 @@ mod tests {
         // has them as integers.
         //
         // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
-        const RECIPE: &str = r#"{"ingredients":[["copper-plate",1.0]],"name":"copper-cable","result":"copper-cable","result_count":2,"type":"recipe"}"#;
+        const RECIPE: &str = r#"{"ingredients":[["copper-plate",1]],"name":"copper-cable","result":"copper-cable","result_count":2,"type":"recipe"}"#;
 
         #[test]
         fn parses() {
@@ -186,7 +186,7 @@ mod tests {
                 order: None,
                 recipe_data: RecipeDataEnum::Simple(RecipeData {
                     enabled: true,
-                    ingredients: vec![Ingredient::Solid("copper-plate".into(), 1.0)],
+                    ingredients: vec![Ingredient::Solid("copper-plate".into(), 1)],
                     output: Output::Single(SingleOutput {
                         name: "copper-cable".into(),
                         amount: 2,
@@ -215,7 +215,7 @@ mod tests {
         // has them as integers.
         //
         // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
-        const RECIPE: &str = r#"{"category":"centrifuging","enabled":false,"energy_required":12.0,"icon":"__base__/graphics/icons/uranium-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[["uranium-ore",10.0]],"name":"uranium-processing","order":"k[uranium-processing]","results":[{"amount":1,"name":"uranium-235","probability":0.007000000000000001},{"amount":1,"name":"uranium-238","probability":0.993}],"subgroup":"raw-material","type":"recipe"}"#;
+        const RECIPE: &str = r#"{"category":"centrifuging","enabled":false,"energy_required":12.0,"icon":"__base__/graphics/icons/uranium-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[["uranium-ore",10]],"name":"uranium-processing","order":"k[uranium-processing]","results":[{"amount":1,"name":"uranium-235","probability":0.007000000000000001},{"amount":1,"name":"uranium-238","probability":0.993}],"subgroup":"raw-material","type":"recipe"}"#;
 
         #[test]
         fn parses() {
@@ -233,7 +233,7 @@ mod tests {
                 recipe_data: RecipeDataEnum::Simple(RecipeData {
                     enabled: false,
                     duration: Duration::seconds(12),
-                    ingredients: vec![Ingredient::Solid("uranium-ore".into(), 10.0)],
+                    ingredients: vec![Ingredient::Solid("uranium-ore".into(), 10)],
                     output: Output::Many(ManyOutputs {
                         outputs: vec![
                             OutputItem {
@@ -271,7 +271,7 @@ mod tests {
         // has them as integers.
         //
         // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
-        const RECIPE: &str = r#"{"category":"oil-processing","enabled":false,"energy_required":5.0,"icon":"__base__/graphics/icons/fluid/advanced-oil-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[{"amount":50.0,"name":"water","type":"fluid"},{"amount":100.0,"name":"crude-oil","type":"fluid"}],"name":"advanced-oil-processing","order":"a[oil-processing]-b[advanced-oil-processing]","results":[{"amount":25,"name":"heavy-oil","type":"fluid"},{"amount":45,"name":"light-oil","type":"fluid"},{"amount":55,"name":"petroleum-gas","type":"fluid"}],"subgroup":"fluid-recipes","type":"recipe"}"#;
+        const RECIPE: &str = r#"{"category":"oil-processing","enabled":false,"energy_required":5.0,"icon":"__base__/graphics/icons/fluid/advanced-oil-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[{"amount":50,"name":"water","type":"fluid"},{"amount":100,"name":"crude-oil","type":"fluid"}],"name":"advanced-oil-processing","order":"a[oil-processing]-b[advanced-oil-processing]","results":[{"amount":25,"name":"heavy-oil","type":"fluid"},{"amount":45,"name":"light-oil","type":"fluid"},{"amount":55,"name":"petroleum-gas","type":"fluid"}],"subgroup":"fluid-recipes","type":"recipe"}"#;
 
         #[test]
         fn parses() {
@@ -291,12 +291,12 @@ mod tests {
                     duration: Duration::seconds(5),
                     ingredients: vec![
                         Ingredient::Explicit(ExplicitIngredient {
-                            amount: 50.0,
+                            amount: 50,
                             name: "water".into(),
                             r#type: "fluid".into(),
                         }),
                         Ingredient::Explicit(ExplicitIngredient {
-                            amount: 100.0,
+                            amount: 100,
                             name: "crude-oil".into(),
                             r#type: "fluid".into(),
                         }),
