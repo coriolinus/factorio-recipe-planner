@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use monostate::MustBe;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSecondsWithFrac};
 use time::Duration;
@@ -136,7 +137,7 @@ pub enum RecipeDataEnum {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Recipe {
     pub name: String,
-    pub r#type: String,
+    pub r#type: MustBe!("recipe"),
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -178,8 +179,8 @@ mod tests {
         #[test]
         fn parses() {
             let expect = Recipe {
+                r#type: MustBe!("recipe"),
                 name: "copper-cable".into(),
-                r#type: "recipe".into(),
                 category: None,
                 subgroup: None,
                 order: None,
@@ -219,8 +220,8 @@ mod tests {
         #[test]
         fn parses() {
             let expect = Recipe {
+                r#type: MustBe!("recipe"),
                 name: "uranium-processing".into(),
-                r#type: "recipe".into(),
                 category: Some("centrifuging".into()),
                 subgroup: Some("raw-material".into()),
                 order: Some("k[uranium-processing]".into()),
@@ -275,8 +276,8 @@ mod tests {
         #[test]
         fn parses() {
             let expect = Recipe {
+                r#type: MustBe!("recipe"),
                 name: "advanced-oil-processing".into(),
-                r#type: "recipe".into(),
                 category: Some("oil-processing".into()),
                 subgroup: Some("fluid-recipes".into()),
                 order: Some("a[oil-processing]-b[advanced-oil-processing]".into()),
