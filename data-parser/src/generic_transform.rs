@@ -21,7 +21,8 @@ pub enum Value {
     Table(Table),
     List(List),
     String(SString),
-    Number(f64),
+    Float(f64),
+    Integer(i64),
     Bool(bool),
     Nil,
 }
@@ -46,7 +47,8 @@ impl fmt::Display for Value {
                 Ok(())
             }
             Value::String(s) => write!(f, "\"{s}\""),
-            Value::Number(n) => write!(f, "{n}"),
+            Value::Float(n) => write!(f, "{n}"),
+            Value::Integer(n) => write!(f, "{n}"),
             Value::Bool(b) => write!(f, "{b}"),
             Value::Nil => f.write_str("nil"),
         }
@@ -66,7 +68,8 @@ impl From<Value> for serde_json::Value {
                 serde_json::Value::Array(list.into_iter().map(Into::into).collect())
             }
             Value::String(s) => s.to_string().into(),
-            Value::Number(n) => serde_json::Number::from_f64(n).into(),
+            Value::Float(n) => serde_json::Number::from_f64(n).into(),
+            Value::Integer(n) => serde_json::Number::from(n).into(),
             Value::Bool(b) => b.into(),
             Value::Nil => serde_json::Value::Null,
         }
@@ -79,11 +82,15 @@ fn parse_token_ref(token_ref: &full_moon::tokenizer::TokenReference) -> Result<V
         | full_moon::tokenizer::TokenType::Identifier { identifier: value } => {
             Ok(SString::from(value.as_str()).into())
         }
-        full_moon::tokenizer::TokenType::Number { text } => Ok(text
-            .as_str()
-            .parse::<f64>()
-            .map_err(Error::wrap("failed to parse as f64"))?
-            .into()),
+        full_moon::tokenizer::TokenType::Number { text } => {
+            let str = text.as_str();
+            let value = str
+                .parse::<i64>()
+                .map(Into::into)
+                .or_else(|_err| str.parse::<f64>().map(Into::into))
+                .map_err(Error::wrap("failed to parse as number"))?;
+            Ok(value)
+        }
         full_moon::tokenizer::TokenType::Symbol { symbol } => match symbol {
             full_moon::tokenizer::Symbol::True => Ok(Value::Bool(true)),
             full_moon::tokenizer::Symbol::False => Ok(Value::Bool(false)),
@@ -125,13 +132,11 @@ pub(crate) fn parse_value(value: &ast::Expression) -> Result<Value> {
         ast::Expression::UnaryOperator {
             unop: ast::UnOp::Minus(_),
             expression,
-        } => {
-            let Value::Number(number) = parse_value(expression)? else {
-                return Err(Error::ExpressionInvalidType(expression.to_string()));
-            };
-
-            Ok(Value::Number(-number))
-        }
+        } => match parse_value(expression)? {
+            Value::Float(number) => Ok(Value::Float(-number)),
+            Value::Integer(number) => Ok(Value::Integer(-number)),
+            _ => Err(Error::ExpressionInvalidType(expression.to_string())),
+        },
         ast::Expression::BinaryOperator { lhs, binop, rhs } => {
             let lhs = parse_value(lhs)
                 .map_err(Error::wrap("parsing lhs of binary operator expression"))?;
@@ -147,35 +152,69 @@ pub(crate) fn parse_value(value: &ast::Expression) -> Result<Value> {
                 (Value::Bool(lhs), ast::BinOp::Or(_), Value::Bool(rhs)) => {
                     Ok(Value::Bool(lhs || rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::LessThan(_), Value::Number(rhs)) => {
+                (Value::Float(lhs), ast::BinOp::LessThan(_), Value::Float(rhs)) => {
                     Ok(Value::Bool(lhs < rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::LessThanEqual(_), Value::Number(rhs)) => {
+                (Value::Float(lhs), ast::BinOp::LessThanEqual(_), Value::Float(rhs)) => {
                     Ok(Value::Bool(lhs <= rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::GreaterThan(_), Value::Number(rhs)) => {
+                (Value::Float(lhs), ast::BinOp::GreaterThan(_), Value::Float(rhs)) => {
                     Ok(Value::Bool(lhs > rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::GreaterThanEqual(_), Value::Number(rhs)) => {
+                (Value::Float(lhs), ast::BinOp::GreaterThanEqual(_), Value::Float(rhs)) => {
                     Ok(Value::Bool(lhs >= rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Minus(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs - rhs))
+                (Value::Float(lhs), ast::BinOp::Minus(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs - rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Percent(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs % rhs))
+                (Value::Float(lhs), ast::BinOp::Percent(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs % rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Plus(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs + rhs))
+                (Value::Float(lhs), ast::BinOp::Plus(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs + rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Slash(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs / rhs))
+                (Value::Float(lhs), ast::BinOp::Slash(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs / rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Star(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs * rhs))
+                (Value::Float(lhs), ast::BinOp::Star(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs * rhs))
                 }
-                (Value::Number(lhs), ast::BinOp::Caret(_), Value::Number(rhs)) => {
-                    Ok(Value::Number(lhs.powf(rhs)))
+                (Value::Float(lhs), ast::BinOp::Caret(_), Value::Float(rhs)) => {
+                    Ok(Value::Float(lhs.powf(rhs)))
+                }
+                (Value::Integer(lhs), ast::BinOp::LessThan(_), Value::Integer(rhs)) => {
+                    Ok(Value::Bool(lhs < rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::LessThanEqual(_), Value::Integer(rhs)) => {
+                    Ok(Value::Bool(lhs <= rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::GreaterThan(_), Value::Integer(rhs)) => {
+                    Ok(Value::Bool(lhs > rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::GreaterThanEqual(_), Value::Integer(rhs)) => {
+                    Ok(Value::Bool(lhs >= rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::Minus(_), Value::Integer(rhs)) => {
+                    Ok(Value::Integer(lhs - rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::Percent(_), Value::Integer(rhs)) => {
+                    Ok(Value::Integer(lhs % rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::Plus(_), Value::Integer(rhs)) => {
+                    Ok(Value::Integer(lhs + rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::Slash(_), Value::Integer(rhs)) => {
+                    if rhs == 0 {
+                        Ok(Value::Float(lhs as f64 / rhs as f64))
+                    } else {
+                        Ok(Value::Integer(lhs / rhs))
+                    }
+                }
+                (Value::Integer(lhs), ast::BinOp::Star(_), Value::Integer(rhs)) => {
+                    Ok(Value::Integer(lhs * rhs))
+                }
+                (Value::Integer(lhs), ast::BinOp::Caret(_), Value::Integer(rhs)) => {
+                    Ok(Value::Integer(lhs.pow(rhs as _)))
                 }
                 (Value::String(mut lhs), ast::BinOp::TwoDots(_), Value::String(rhs)) => {
                     lhs.push_str(&rhs);

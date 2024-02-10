@@ -91,17 +91,25 @@ pub enum Output {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ExplicitIngredient {
+pub struct Fluid {
     amount: u32,
     name: String,
-    r#type: String,
+    r#type: MustBe!("fluid"),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Item {
+    amount: u32,
+    name: String,
+    r#type: MustBe!("item"),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Ingredient {
-    Solid(String, u32),
-    Explicit(ExplicitIngredient),
+    SimpleItem(String, u32),
+    Fluid(Fluid),
+    Item(Item),
 }
 
 #[serde_as]
@@ -169,11 +177,6 @@ mod tests {
     mod iron_stick {
         use super::super::*;
 
-        // Note that this is not quite the recipe from the real recipe book;
-        // this expresses certain quantities as floats, where the recipe book
-        // has them as integers.
-        //
-        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
         const RECIPE: &str = r#"{"ingredients":[["iron-plate",1]],"name":"iron-stick","result":"iron-stick","result_count":2,"type":"recipe"}"#;
 
         #[test]
@@ -186,7 +189,7 @@ mod tests {
                 order: None,
                 recipe_data: RecipeDataEnum::Simple(RecipeData {
                     enabled: true,
-                    ingredients: vec![Ingredient::Solid("iron-plate".into(), 1)],
+                    ingredients: vec![Ingredient::SimpleItem("iron-plate".into(), 1)],
                     output: Output::Single(SingleOutput {
                         name: "iron-stick".into(),
                         amount: 2,
@@ -209,11 +212,6 @@ mod tests {
     mod copper_cable {
         use super::super::*;
 
-        // Note that this is not quite the recipe from the real recipe book;
-        // this expresses certain quantities as floats, where the recipe book
-        // has them as integers.
-        //
-        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
         const RECIPE: &str = r#"{"ingredients":[["copper-plate",1]],"name":"copper-cable","result":"copper-cable","result_count":2,"type":"recipe"}"#;
 
         #[test]
@@ -226,7 +224,7 @@ mod tests {
                 order: None,
                 recipe_data: RecipeDataEnum::Simple(RecipeData {
                     enabled: true,
-                    ingredients: vec![Ingredient::Solid("copper-plate".into(), 1)],
+                    ingredients: vec![Ingredient::SimpleItem("copper-plate".into(), 1)],
                     output: Output::Single(SingleOutput {
                         name: "copper-cable".into(),
                         amount: 2,
@@ -250,11 +248,6 @@ mod tests {
     mod uranium_processing {
         use super::super::*;
 
-        // Note that this is not quite the recipe from the real recipe book;
-        // this expresses certain quantities as floats, where the recipe book
-        // has them as integers.
-        //
-        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
         const RECIPE: &str = r#"{"category":"centrifuging","enabled":false,"energy_required":12.0,"icon":"__base__/graphics/icons/uranium-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[["uranium-ore",10]],"name":"uranium-processing","order":"k[uranium-processing]","results":[{"amount":1,"name":"uranium-235","probability":0.007000000000000001},{"amount":1,"name":"uranium-238","probability":0.993}],"subgroup":"raw-material","type":"recipe"}"#;
 
         #[test]
@@ -273,7 +266,7 @@ mod tests {
                 recipe_data: RecipeDataEnum::Simple(RecipeData {
                     enabled: false,
                     duration: Duration::seconds(12),
-                    ingredients: vec![Ingredient::Solid("uranium-ore".into(), 10)],
+                    ingredients: vec![Ingredient::SimpleItem("uranium-ore".into(), 10)],
                     output: Output::Many(ManyOutputs {
                         outputs: vec![
                             OutputItem {
@@ -306,11 +299,6 @@ mod tests {
     mod advanced_oil_processing {
         use super::super::*;
 
-        // Note that this is not quite the recipe from the real recipe book;
-        // this expresses certain quantities as floats, where the recipe book
-        // has them as integers.
-        //
-        // This is necessary for the round-trip test to work, because our data model converts it to a float in all cases.
         const RECIPE: &str = r#"{"category":"oil-processing","enabled":false,"energy_required":5.0,"icon":"__base__/graphics/icons/fluid/advanced-oil-processing.png","icon_mipmaps":4,"icon_size":64,"ingredients":[{"amount":50,"name":"water","type":"fluid"},{"amount":100,"name":"crude-oil","type":"fluid"}],"name":"advanced-oil-processing","order":"a[oil-processing]-b[advanced-oil-processing]","results":[{"amount":25,"name":"heavy-oil","type":"fluid"},{"amount":45,"name":"light-oil","type":"fluid"},{"amount":55,"name":"petroleum-gas","type":"fluid"}],"subgroup":"fluid-recipes","type":"recipe"}"#;
 
         #[test]
@@ -330,15 +318,15 @@ mod tests {
                     enabled: false,
                     duration: Duration::seconds(5),
                     ingredients: vec![
-                        Ingredient::Explicit(ExplicitIngredient {
+                        Ingredient::Fluid(Fluid {
                             amount: 50,
                             name: "water".into(),
-                            r#type: "fluid".into(),
+                            r#type: MustBe!("fluid"),
                         }),
-                        Ingredient::Explicit(ExplicitIngredient {
+                        Ingredient::Fluid(Fluid {
                             amount: 100,
                             name: "crude-oil".into(),
-                            r#type: "fluid".into(),
+                            r#type: MustBe!("fluid"),
                         }),
                     ],
                     output: Output::Many(ManyOutputs {
