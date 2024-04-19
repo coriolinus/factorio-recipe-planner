@@ -92,15 +92,15 @@ pub enum Output {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Fluid {
-    amount: u32,
-    name: String,
+    pub amount: u32,
+    pub name: String,
     r#type: MustBe!("fluid"),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Item {
-    amount: u32,
-    name: String,
+    pub amount: u32,
+    pub name: String,
     r#type: MustBe!("item"),
 }
 

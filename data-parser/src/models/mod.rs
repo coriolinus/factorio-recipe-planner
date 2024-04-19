@@ -1,3 +1,1 @@
-mod recipe;
-
-pub use recipe::Recipe;
+pub mod recipe;
